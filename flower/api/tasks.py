@@ -1,6 +1,7 @@
 import json
 import logging
 
+import pytz
 from datetime import datetime
 
 from tornado import web
@@ -9,7 +10,7 @@ from tornado.ioloop import IOLoop
 from tornado.escape import json_decode
 from tornado.web import HTTPError
 
-from celery import states
+from celery import states, current_app
 from celery.result import AsyncResult
 from celery.contrib.abortable import AbortableAsyncResult
 from celery.backends.base import DisabledBackend
@@ -59,10 +60,34 @@ class BaseTaskHandler(BaseHandler):
         else:
             response.update({'result': self.safe_result(result.result)})
 
+    def set_timezone(self, time):
+        time = datetime.strptime(time, self.DATE_FORMAT)
+
+        try:
+            if 'timezone' in current_app.conf:
+                time = time.replace(
+                    tzinfo=pytz.timezone(current_app.conf['timezone'])
+                )
+                # we return directly so the value didnot getting override by
+                # CELERY_TIMEZONE
+                return time
+
+            # support old version
+            if 'CELERY_TIMEZONE' in current_app.conf:
+                time = time.replace(
+                    tzinfo=pytz.timezone(current_app.conf['CELERY_TIMEZONE'])
+                )
+        except pytz.exceptions.UnknownTimeZoneError:
+            pass
+        except Exception:
+            raise
+
+        return time
+
     def normalize_options(self, options):
         if 'eta' in options:
-            options['eta'] = datetime.strptime(options['eta'],
-                                               self.DATE_FORMAT)
+            options['eta'] = self.set_timezone(options['eta'])
+
         if 'countdown' in options:
             options['countdown'] = float(options['countdown'])
         if 'expires' in options:
@@ -70,7 +95,7 @@ class BaseTaskHandler(BaseHandler):
             try:
                 expires = float(expires)
             except ValueError:
-                expires = datetime.strptime(expires, self.DATE_FORMAT)
+                expires = self.set_timezone(expires)
             options['expires'] = expires
 
     def safe_result(self, result):
