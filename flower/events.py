@@ -69,6 +69,9 @@ class EventsState(State):
         super(EventsState, self).__init__(*args, **kwargs)
         self.counter = collections.defaultdict(Counter)
         self.metrics = get_prometheus_metrics()
+        self.excluded_tasks = []
+        if 'excluded_tasks' in kwargs and isinstance(kwargs['excluded_tasks'], list):
+            self.excluded_tasks = kwargs['excluded_tasks']
 
     def event(self, event):
         # Save the event
@@ -122,6 +125,19 @@ class EventsState(State):
         cls = getattr(api.events, classname, None)
         if cls:
             cls.send_message(event)
+
+    def get_tasks(self):
+        """
+        Get all task that gonna used by application
+        exclude task that defined at excluded_tasks
+        """
+
+        def _filter(item):
+            return item[1].name not in self.excluded_tasks
+
+        return filter(
+                _filter,
+                self.tasks_by_timestamp())
 
 
 class Events(threading.Thread):
