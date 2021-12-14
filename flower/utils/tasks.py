@@ -6,11 +6,10 @@ from .search import satisfies_search_terms, parse_search_terms
 from celery.events.state import Task
 
 
-def iter_tasks(events, limit=None, offset=0, type=None, worker=None, state=None,
+def iter_tasks(tasks, limit=None, offset=0, type=None, worker=None, state=None,
                sort_by=None, received_start=None, received_end=None,
                started_start=None, started_end=None, search=None):
     i = 0
-    tasks = events.state.get_tasks()
     if sort_by is not None:
         tasks = sort_tasks(tasks, sort_by)
 
