@@ -123,14 +123,17 @@ class EventsState(State):
         if cls:
             cls.send_message(event)
 
-    def get_tasks(self):
+    def get_tasks(self, **kwargs):
         """
         Get all task that gonna used by application
         exclude task that defined at excluded_tasks
         """
 
+        excluded = kwargs.get('excluded', '')
+        list_excluded = [task.strip() for task in excluded.split('\n') if task]
+
         def _filter(item):
-            return item[1].name not in self.excluded_tasks
+            return item[1].name not in list_excluded
 
         return filter(
                 _filter,
