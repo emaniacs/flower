@@ -69,9 +69,6 @@ class EventsState(State):
         super(EventsState, self).__init__(*args, **kwargs)
         self.counter = collections.defaultdict(Counter)
         self.metrics = get_prometheus_metrics()
-        self.excluded_tasks = []
-        if 'excluded_tasks' in kwargs and isinstance(kwargs['excluded_tasks'], list):
-            self.excluded_tasks = kwargs['excluded_tasks']
 
     def event(self, event):
         # Save the event
