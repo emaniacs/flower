@@ -10,6 +10,17 @@
 <input type="hidden" value="{{ columns }}" id='columns'>
 
 <div class="container-fluid">
+    <form class="navbar-form pull-left" style="margin-bottom: 20px; ">
+        <textarea rows="3" name="excluded">
+            {{ excluded }}
+        </textarea>
+        <button type="submit" class="btn">Filter</button>
+        <p>
+            <small>Excluded tasks</small>
+        </p>
+    </form>
+</div>
+<div class="container-fluid">
 
   <table id="tasks-table" class="table table-bordered table-striped">
     <thead>
