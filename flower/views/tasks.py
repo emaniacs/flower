@@ -55,13 +55,16 @@ class TasksDataTable(BaseHandler):
         sort_by = self.get_argument('columns[%s][data]' % column, type=str)
         sort_order = self.get_argument('order[0][dir]', type=str) == 'desc'
 
+        excluded = self.get_argument('excluded', type=str)
+
         def key(item):
             return Comparable(getattr(item[1], sort_by))
 
-        self.maybe_normalize_for_sort(app.events.state.get_tasks(), sort_by)
+        tasks = app.events.state.get_tasks(excluded=excluded)
+        self.maybe_normalize_for_sort(tasks, sort_by)
 
         sorted_tasks = sorted(
-            iter_tasks(app.events, search=search),
+            iter_tasks(tasks, search=search),
             key=key,
             reverse=sort_order
         )
@@ -112,6 +115,7 @@ class TasksView(BaseHandler):
     def get(self):
         app = self.application
         capp = self.application.capp
+        excluded = self.get_argument('excluded', type=str)
 
         time = 'natural-time' if app.options.natural_time else 'time'
         if capp.conf.CELERY_TIMEZONE:
@@ -122,4 +126,5 @@ class TasksView(BaseHandler):
             tasks=[],
             columns=app.options.tasks_columns,
             time=time,
+            excluded=excluded
         )
