@@ -35,6 +35,10 @@ var flower = (function () {
         return '';
     }
 
+  function generate_url(path) {
+    return '' + location.search
+  }
+
     //https://github.com/DataTables/DataTables/blob/1.10.11/media/js/jquery.dataTables.js#L14882
     function htmlEscapeEntities(d) {
         return typeof d === 'string' ?
@@ -538,7 +542,7 @@ var flower = (function () {
             colReorder: true,
             ajax: {
                 type: 'POST',
-                url: url_prefix() + '/tasks/datatable'
+                url: url_prefix() + generate_url('/tasks/datatable')
             },
             order: [
                 [7, "desc"]
