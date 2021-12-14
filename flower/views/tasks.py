@@ -64,7 +64,7 @@ class TasksDataTable(BaseHandler):
         self.maybe_normalize_for_sort(tasks, sort_by)
 
         sorted_tasks = sorted(
-            iter_tasks(tasks, search=search),
+            iter_tasks(app.events.state.get_tasks(excluded=excluded), search=search),
             key=key,
             reverse=sort_order
         )
