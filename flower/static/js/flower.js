@@ -36,7 +36,7 @@ var flower = (function () {
     }
 
   function generate_url(path) {
-    return '' + location.search
+    return path + location.search
   }
 
     //https://github.com/DataTables/DataTables/blob/1.10.11/media/js/jquery.dataTables.js#L14882
