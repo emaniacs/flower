@@ -5,7 +5,6 @@ import pytz
 from datetime import datetime
 
 from tornado import web
-from tornado import gen
 from tornado.ioloop import IOLoop
 from tornado.escape import json_decode
 from tornado.web import HTTPError
@@ -16,7 +15,7 @@ from celery.contrib.abortable import AbortableAsyncResult
 from celery.backends.base import DisabledBackend
 
 from ..utils import tasks
-from ..views import BaseHandler
+from . import BaseApiHandler
 from ..utils.broker import Broker
 from ..api.control import ControlHandler
 from collections import OrderedDict
@@ -25,7 +24,7 @@ from collections import OrderedDict
 logger = logging.getLogger(__name__)
 
 
-class BaseTaskHandler(BaseHandler):
+class BaseTaskHandler(BaseApiHandler):
     DATE_FORMAT = '%Y-%m-%d %H:%M:%S.%f'
 
     def get_task_args(self):
@@ -110,8 +109,7 @@ class BaseTaskHandler(BaseHandler):
 
 class TaskApply(BaseTaskHandler):
     @web.authenticated
-    @gen.coroutine
-    def post(self, taskname):
+    async def post(self, taskname):
         """
 Execute a task by name and wait results
 
@@ -168,7 +166,7 @@ Execute a task by name and wait results
         result = task.apply_async(args=args, kwargs=kwargs, **options)
         response = {'task-id': result.task_id}
 
-        response = yield IOLoop.current().run_in_executor(
+        response = await IOLoop.current().run_in_executor(
             None, self.wait_results, result, response)
         self.write(response)
 
@@ -391,8 +389,7 @@ Abort a running task
 
 class GetQueueLengths(BaseTaskHandler):
     @web.authenticated
-    @gen.coroutine
-    def get(self):
+    async def get(self):
         """
 Return length of all active queues
 
@@ -424,15 +421,15 @@ Return length of all active queues
 :statuscode 503: result backend is not configured
         """
         app = self.application
-        broker_options = self.capp.conf.BROKER_TRANSPORT_OPTIONS
+        broker_options = self.capp.conf.broker_transport_options
 
         http_api = None
         if app.transport == 'amqp' and app.options.broker_api:
             http_api = app.options.broker_api
 
         broker_use_ssl = None
-        if self.capp.conf.BROKER_USE_SSL:
-            broker_use_ssl = self.capp.conf.BROKER_USE_SSL
+        if self.capp.conf.broker_use_ssl:
+            broker_use_ssl = self.capp.conf.broker_use_ssl
 
         broker = Broker(app.capp.connection().as_uri(include_password=True),
                         http_api=http_api, broker_options=broker_options, broker_use_ssl=broker_use_ssl)
@@ -440,10 +437,10 @@ Return length of all active queues
         queue_names = self.get_active_queue_names()
 
         if not queue_names:
-            queue_names = set([self.capp.conf.CELERY_DEFAULT_QUEUE]) |\
-                set([q.name for q in self.capp.conf.CELERY_QUEUES or [] if q.name])
+            queue_names = set([self.capp.conf.task_default_queue]) |\
+                set([q.name for q in self.capp.conf.task_queues or [] if q.name])
 
-        queues = yield broker.queues(sorted(queue_names))
+        queues = await broker.queues(sorted(queue_names))
         self.write({'active_queues': queues})
 
 

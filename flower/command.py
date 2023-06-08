@@ -16,8 +16,9 @@ from celery.bin.base import CeleryCommand
 
 from .app import Flower
 from .urls import settings
-from .utils import abs_path, prepend_url
+from .utils import abs_path, prepend_url, strtobool
 from .options import DEFAULT_CONFIG_FILE, default_options
+from .views.auth import validate_auth_option
 
 logger = logging.getLogger(__name__)
 ENV_VAR_PREFIX = 'FLOWER_'
@@ -68,7 +69,11 @@ def apply_env_options():
         if option.multiple:
             value = [option.type(i) for i in value.split(',')]
         else:
-            value = option.type(value)
+            if option.type is bool:
+                value = bool(strtobool(value))
+            else:
+                value = option.type(value)
+        print(name, type(value), value)
         setattr(options, name, value)
 
 
@@ -135,6 +140,10 @@ def extract_settings():
         if options.ca_certs:
             settings['ssl_options']['ca_certs'] = abs_path(options.ca_certs)
 
+    if options.auth and not validate_auth_option(options.auth):
+        logger.error("Invalid '--auth' option: %s", options.auth)
+        sys.exit(1)
+
 
 def is_flower_option(arg):
     name, _, _ = arg.lstrip('-').partition("=")
@@ -149,9 +158,15 @@ def is_flower_envvar(name):
 
 def print_banner(app, ssl):
     if not options.unix_socket:
+        if options.url_prefix:
+            prefix_str = f'/{options.url_prefix}/'
+        else:
+            prefix_str = ''
+
         logger.info(
-            "Visit me at http%s://%s:%s", 's' if ssl else '',
-            options.address or 'localhost', options.port
+            "Visit me at http%s://%s:%s%s", 's' if ssl else '',
+            options.address or '0.0.0.0', options.port,
+            prefix_str
         )
     else:
         logger.info("Visit me via unix socket file: %s", options.unix_socket)
@@ -162,3 +177,5 @@ def print_banner(app, ssl):
         pformat(sorted(app.tasks.keys()))
     )
     logger.debug('Settings: %s', pformat(settings))
+    if not (options.basic_auth or options.auth):
+        logger.warning('Running without authentication')

@@ -3,25 +3,27 @@ import inspect
 import traceback
 import copy
 import logging
+import hmac
 
-from distutils.util import strtobool
 from base64 import b64decode
 
 import tornado
 
-from ..utils import template, bugreport, prepend_url
+from ..utils import template, bugreport, strtobool
 
 logger = logging.getLogger(__name__)
 
 
 class BaseHandler(tornado.web.RequestHandler):
     def set_default_headers(self):
-        self.set_header("Access-Control-Allow-Origin", "*")
-        self.set_header("Access-Control-Allow-Headers", "x-requested-with")
-        self.set_header('Access-Control-Allow-Methods',
-                        ' PUT, DELETE, OPTIONS')
+        if not (self.application.options.basic_auth or self.application.options.auth):
+            self.set_header("Access-Control-Allow-Origin", "*")
+            self.set_header("Access-Control-Allow-Headers",
+                            "x-requested-with,access-control-allow-origin,authorization,content-type")
+            self.set_header('Access-Control-Allow-Methods',
+                            ' PUT, DELETE, OPTIONS, POST, GET, PATCH')
 
-    def options(self):
+    def options(self, *args, **kwargs):
         self.set_status(204)
         self.finish()
 
@@ -45,10 +47,10 @@ class BaseHandler(tornado.web.RequestHandler):
                 error_trace += line
 
             self.render('error.html',
-                        debug=self.application.options.debug,
-                        status_code=status_code,
-                        error_trace=error_trace,
-                        bugreport=bugreport())
+                    debug=self.application.options.debug,
+                    status_code=status_code,
+                    error_trace=error_trace,
+                    bugreport=bugreport())
         elif status_code == 401:
             self.set_status(status_code)
             self.set_header('WWW-Authenticate', 'Basic realm="flower"')
@@ -70,7 +72,12 @@ class BaseHandler(tornado.web.RequestHandler):
             try:
                 basic, credentials = auth_header.split()
                 credentials = b64decode(credentials.encode()).decode()
-                if basic != 'Basic' or credentials not in basic_auth:
+                if basic != 'Basic':
+                    raise tornado.web.HTTPError(401)
+                for stored_credential in basic_auth:
+                    if hmac.compare_digest(stored_credential, credentials):
+                        break
+                else:
                     raise tornado.web.HTTPError(401)
             except ValueError:
                 raise tornado.web.HTTPError(401)
@@ -100,9 +107,9 @@ class BaseHandler(tornado.web.RequestHandler):
                 if arg is None and default is None:
                     return arg
                 raise tornado.web.HTTPError(
-                    400,
-                    "Invalid argument '%s' of type '%s'" % (
-                        arg, type.__name__))
+                        400,
+                        "Invalid argument '%s' of type '%s'" % (
+                            arg, type.__name__))
         return arg
 
     @property
